@@ -36,7 +36,7 @@ body {
 
 #hud {
   display: grid;
-  grid-template-columns: auto auto 1fr;
+  grid-template-columns: 1fr auto;
   gap: 12px;
   align-items: center;
   padding: 8px 12px;
@@ -50,8 +50,7 @@ body {
   color: var(--muted);
 }
 
-#time,
-#work {
+#time {
   font-size: 22px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -102,7 +101,7 @@ body {
 
 #controls {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
   background: var(--panel);
   border-top: 1px solid var(--line);
@@ -110,8 +109,8 @@ body {
 
 #controls button {
   flex: 1;
-  padding: 8px 6px;
-  font-size: 15px;
+  padding: 8px 4px;
+  font-size: 13px;
   white-space: nowrap;
 }
 
@@ -251,4 +250,63 @@ button.big {
 .row button {
   flex: 1;
   font-size: 15px;
+}
+
+.meter[hidden] {
+  display: none;
+}
+
+.bars {
+  display: grid;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.bar {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.track {
+  height: 10px;
+  overflow: hidden;
+  background: #120f16;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+.fill {
+  height: 100%;
+  transform-origin: left;
+}
+
+.fill.hp {
+  background: #e0575a;
+}
+
+.fill.fun {
+  background: var(--accent);
+}
+
+#hero-room {
+  color: var(--text);
+}
+
+.page {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.page b {
+  color: var(--accent);
+}
+
+.page.torn {
+  color: var(--muted);
 }

@@ -1,6 +1,7 @@
 import "./style.css";
 import {
   CARRY_LIMIT,
+  HERO_MAX_HP,
   ITEM_LABEL,
   STORAGE_ITEMS,
   type Game,
@@ -8,8 +9,7 @@ import {
   enqueue,
   newGame,
   putBack,
-  remainingWork,
-  score,
+  result,
   startHero,
   takeItem,
   update,
@@ -27,6 +27,7 @@ const bp = loadBlueprint();
 let game: Game = newGame(bp, randomSeed());
 let tile = 32;
 let showBlueprint = false;
+let bookOpen = false;
 
 function randomSeed() {
   return Math.floor(Math.random() * 2 ** 31);
@@ -49,8 +50,10 @@ new ResizeObserver(resize).observe(stage);
 
 // ---- 入力 ----
 
+const playing = () => game.phase === "prep" || game.phase === "hero";
+
 canvas.addEventListener("pointerdown", (e) => {
-  if (game.phase !== "shift" || game.storageOpen) return;
+  if (!playing() || game.storageOpen || bookOpen) return;
   const r = canvas.getBoundingClientRect();
   const x = Math.floor((e.clientX - r.left) / tile);
   const y = Math.floor((e.clientY - r.top) / tile);
@@ -58,20 +61,46 @@ canvas.addEventListener("pointerdown", (e) => {
   enqueue(game, { x, y });
 });
 
-$("btn-blueprint").addEventListener("click", () => {
-  showBlueprint = !showBlueprint;
-  $("btn-blueprint").classList.toggle("on", showBlueprint);
+function setBlueprint(on: boolean) {
+  showBlueprint = on;
+  $("btn-blueprint").classList.toggle("on", on);
+}
+
+function setBook(open: boolean) {
+  bookOpen = open;
+  $("book").hidden = !open;
+  if (!open) return;
+  $("book-pages").replaceChildren(
+    ...game.book.map((page, i) => {
+      const div = document.createElement("div");
+      div.className = page.torn ? "page torn" : "page";
+      const head = document.createElement("b");
+      head.textContent = `${i + 1}. ${page.room}`;
+      div.append(head, document.createElement("br"));
+      div.append(page.torn ? "（このページは破れていて読めない）" : page.lines.join("。") + "。");
+      return div;
+    }),
+  );
+  // 最初の引き継ぎのときだけ「仕事にかかる」、それ以外は「閉じる」
+  $("btn-book-close").textContent = game.phase === "intro" ? "仕事にかかる" : "閉じる";
+}
+
+$("btn-blueprint").addEventListener("click", () => setBlueprint(!showBlueprint));
+$("btn-book").addEventListener("click", () => setBook(true));
+$("btn-book-close").addEventListener("click", () => {
+  setBook(false);
+  if (game.phase === "intro") game.phase = "prep";
 });
 $("btn-clear").addEventListener("click", () => clearQueue(game));
 $("btn-hero").addEventListener("click", () => {
-  if (game.phase === "shift") startHero(game);
+  if (game.phase === "prep") startHero(game);
 });
 $("btn-speed").addEventListener("click", () => {
-  game.heroSpeed = game.heroSpeed === 1 ? 3 : 1;
+  game.heroSpeed = game.heroSpeed === 1 ? 2 : 1;
 });
 $("btn-start").addEventListener("click", () => {
   $("intro").hidden = true;
-  game.phase = "shift";
+  setBook(true);
 });
 $("btn-storage-close").addEventListener("click", () => (game.storageOpen = false));
 $("btn-retry").addEventListener("click", () => restart(game.seed));
@@ -79,13 +108,13 @@ $("btn-next").addEventListener("click", () => restart(randomSeed()));
 
 function restart(seed: number) {
   game = newGame(bp, seed);
-  game.phase = "shift";
-  showBlueprint = false;
-  $("btn-blueprint").classList.remove("on");
+  setBlueprint(false);
   resultShown = false;
+  hudKey = "";
+  setBook(true);
 }
 
-// ---- 倉庫 ----
+// ---- 棚 ----
 
 let storageKey = "";
 function renderStorage() {
@@ -95,8 +124,7 @@ function renderStorage() {
   storageKey = key;
   $("storage").hidden = !game.storageOpen;
   if (!game.storageOpen) return;
-  const shelf = $("shelf");
-  shelf.replaceChildren(
+  $("shelf").replaceChildren(
     ...STORAGE_ITEMS.map((item) => {
       const b = document.createElement("button");
       b.type = "button";
@@ -106,8 +134,7 @@ function renderStorage() {
       return b;
     }),
   );
-  const carry = $("carry");
-  carry.replaceChildren(
+  $("carry").replaceChildren(
     ...Array.from({ length: CARRY_LIMIT }, (_, i) => {
       const b = document.createElement("button");
       b.type = "button";
@@ -124,12 +151,19 @@ function renderStorage() {
 let hudKey = "";
 function renderHud() {
   const t = Math.ceil(game.timeLeft);
-  const key = `${t}|${remainingWork(game)}|${game.janitor.inv.join(",")}|${game.phase}|${game.heroSpeed}`;
+  const h = game.hero;
+  const key = `${t}|${game.janitor.inv.join(",")}|${game.phase}|${game.heroSpeed}|${h?.room}`;
+  if (h) {
+    $("hp-bar").style.transform = `scaleX(${h.hp / HERO_MAX_HP})`;
+    $("fun-bar").style.transform = `scaleX(${h.fun / 100})`;
+  }
   if (key === hudKey) return;
   hudKey = key;
   $("time").textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
-  $("time").classList.toggle("hurry", t <= 20 && game.phase === "shift");
-  $("work").textContent = String(remainingWork(game));
+  $("time").classList.toggle("hurry", t <= 15);
+  $("hud-prep").hidden = game.phase === "hero" || game.phase === "result";
+  $("hud-hero").hidden = !$("hud-prep").hidden;
+  if (h) $("hero-room").textContent = `― ${bp.heroRooms[h.room].name}`;
   $("inv").replaceChildren(
     ...Array.from({ length: CARRY_LIMIT }, (_, i) => {
       const s = document.createElement("span");
@@ -139,16 +173,10 @@ function renderHud() {
       return s;
     }),
   );
-  const inShift = game.phase === "shift";
-  $("btn-blueprint").hidden = !inShift;
-  $("btn-clear").hidden = !inShift;
-  $("btn-hero").hidden = !inShift;
+  $("btn-hero").hidden = game.phase !== "prep";
   $("btn-speed").hidden = game.phase !== "hero";
   $("btn-speed").textContent = `早送り ×${game.heroSpeed}`;
-  if (!inShift && showBlueprint) {
-    showBlueprint = false;
-    $("btn-blueprint").classList.remove("on");
-  }
+  if (!playing() && showBlueprint) setBlueprint(false);
 }
 
 let resultShown = false;
@@ -157,19 +185,20 @@ function renderResult() {
   $("result").hidden = !show;
   if (!show || resultShown) return;
   resultShown = true;
-  const s = score(game);
+  const s = result(game);
+  $("result-title").textContent = s.title;
   $("stars").textContent = "★".repeat(s.stars) + "☆".repeat(3 - s.stars);
-  $("summary").textContent = `直すべき ${s.total} か所のうち ${s.good} か所 OK。給料 ${s.pay} G`;
-  const list = $("judgements");
+  const caught = s.caught ? `、見つかった ${s.caught} 回` : "";
+  $("summary").textContent = `ワクワク ${s.fun}、残り体力 ${s.hp}${caught}。給料 ${s.pay} G`;
   // 同じ感想はまとめて、ダメだったものを先に出す
   const counts = new Map<string, { ok: boolean; n: number }>();
-  for (const j of game.judgements) {
+  for (const j of game.log) {
     const c = counts.get(j.text) ?? { ok: j.ok, n: 0 };
     c.n++;
     counts.set(j.text, c);
   }
   const sorted = [...counts].sort((a, b) => Number(a[1].ok) - Number(b[1].ok) || b[1].n - a[1].n);
-  list.replaceChildren(
+  $("judgements").replaceChildren(
     ...sorted.map(([text, c]) => {
       const li = document.createElement("li");
       li.className = c.ok ? "ok" : "ng";
@@ -185,7 +214,7 @@ let last = performance.now();
 function frame(now: number) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
-  update(game, dt);
+  if (!bookOpen) update(game, dt);
   render(ctx, game, tile, showBlueprint, now / 1000);
   renderHud();
   renderStorage();
