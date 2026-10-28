@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#16131a" />
+    <meta name="description" content="勇者が荒らしたダンジョンを、次の勇者が来るまでに元どおりに。RPGの裏方を遊ぶブラウザゲーム。" />
+    <title>ダンジョンの清掃員</title>
+  </head>
+  <body>
+    <div id="app">
+      <header id="hud">
+        <div class="clock"><span class="label">勇者まで</span><span id="time">1:40</span></div>
+        <div class="work"><span class="label">残りの作業</span><span id="work">0</span></div>
+        <div class="inv"><span class="label">持ち物</span><div id="inv"></div></div>
+      </header>
+      <main id="stage"><canvas id="board"></canvas></main>
+      <footer id="controls">
+        <button id="btn-blueprint" type="button">設計図</button>
+        <button id="btn-clear" type="button">予定を消す</button>
+        <button id="btn-hero" type="button" class="primary">勇者を呼ぶ</button>
+        <button id="btn-speed" type="button" hidden>早送り ×1</button>
+      </footer>
+
+      <section id="intro" class="overlay">
+        <div class="card">
+          <h1>ダンジョンの清掃員</h1>
+          <p class="lead">勇者が通ったあとのフロアを、<br />次の勇者が来る前に「初めて来たように」戻すのが仕事です。</p>
+          <ul>
+            <li>マスをタップすると、清掃員がそこへ行って作業します。6 つまで予約できます</li>
+            <li>倒れたモンスターには<b>蘇生札</b>、壊れた扉には<b>板</b>、空の宝箱には<b>中身</b>がいります。左上の倉庫の棚で取ってきます（3 つまで）</li>
+            <li>宝箱に何を入れるかは<b>設計図</b>に書いてあります。罠・松明・汚れも、設計図と見比べて探しましょう</li>
+            <li>時間になると勇者が来ます。勇者の反応で、あなたの仕事が評価されます</li>
+          </ul>
+          <button id="btn-start" type="button" class="primary big">出勤する</button>
+        </div>
+      </section>
+
+      <section id="storage" class="overlay" hidden>
+        <div class="card">
+          <h2>倉庫</h2>
+          <p class="hint">持てるのは 3 つまで。タップで取る・戻す</p>
+          <div id="shelf" class="grid"></div>
+          <h3>持ち物</h3>
+          <div id="carry" class="grid"></div>
+          <button id="btn-storage-close" type="button" class="primary">閉じる</button>
+        </div>
+      </section>
+
+      <section id="result" class="overlay" hidden>
+        <div class="card">
+          <h2>勤務評価</h2>
+          <div id="stars" class="stars"></div>
+          <p id="summary" class="lead"></p>
+          <ul id="judgements" class="judgements"></ul>
+          <div class="row">
+            <button id="btn-retry" type="button">同じ現場でもう一度</button>
+            <button id="btn-next" type="button" class="primary">次のシフトへ</button>
+          </div>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
