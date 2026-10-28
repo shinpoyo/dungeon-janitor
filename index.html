@@ -4,19 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#16131a" />
-    <meta name="description" content="勇者が荒らしたダンジョンを、次の勇者が来るまでに元どおりに。RPGの裏方を遊ぶブラウザゲーム。" />
+    <meta name="description" content="暗いダンジョンを先回りして直し、勇者にちょうどいい冒険をさせる。RPGの裏方を遊ぶブラウザゲーム。" />
     <title>ダンジョンの清掃員</title>
   </head>
   <body>
     <div id="app">
       <header id="hud">
-        <div class="clock"><span class="label">勇者まで</span><span id="time">1:40</span></div>
-        <div class="work"><span class="label">残りの作業</span><span id="work">0</span></div>
+        <div id="hud-prep" class="meter"><span class="label">勇者が来るまで</span><span id="time">1:30</span></div>
+        <div id="hud-hero" class="meter" hidden>
+          <span class="label">勇者 <span id="hero-room"></span></span>
+          <div class="bars">
+            <div class="bar"><span class="bar-name">体力</span><div class="track"><div id="hp-bar" class="fill hp"></div></div></div>
+            <div class="bar"><span class="bar-name">ワクワク</span><div class="track"><div id="fun-bar" class="fill fun"></div></div></div>
+          </div>
+        </div>
         <div class="inv"><span class="label">持ち物</span><div id="inv"></div></div>
       </header>
       <main id="stage"><canvas id="board"></canvas></main>
       <footer id="controls">
         <button id="btn-blueprint" type="button">設計図</button>
+        <button id="btn-book" type="button">冒険の書</button>
         <button id="btn-clear" type="button">予定を消す</button>
         <button id="btn-hero" type="button" class="primary">勇者を呼ぶ</button>
         <button id="btn-speed" type="button" hidden>早送り ×1</button>
@@ -25,31 +32,40 @@
       <section id="intro" class="overlay">
         <div class="card">
           <h1>ダンジョンの清掃員</h1>
-          <p class="lead">勇者が通ったあとのフロアを、<br />次の勇者が来る前に「初めて来たように」戻すのが仕事です。</p>
+          <p class="lead">勇者が荒らしたフロアを直し、次の勇者に「ちょうどいい冒険」をさせるのが仕事です。</p>
           <ul>
-            <li>マスをタップすると、清掃員がそこへ行って作業します。6 つまで予約できます</li>
-            <li>倒れたモンスターには<b>蘇生札</b>、壊れた扉には<b>板</b>、空の宝箱には<b>中身</b>がいります。左上の倉庫の棚で取ってきます（3 つまで）</li>
-            <li>宝箱に何を入れるかは<b>設計図</b>に書いてあります。罠・松明・汚れも、設計図と見比べて探しましょう</li>
-            <li>時間になると勇者が来ます。勇者の反応で、あなたの仕事が評価されます</li>
+            <li>フロアは暗く、ランタンの届く所しか見えません。前の勇者の<b>冒険の書</b>と<b>設計図</b>から、どこが壊れているか当たりをつけて回りましょう</li>
+            <li>マスをタップすると清掃員がそこへ行って作業します（6 つまで予約）。蘇生札・板・宝箱の中身は職員通路の棚で取ってきます（3 つまで）。倒れたモンスターは、蘇生札を持たずに触ると片付けます</li>
+            <li>勇者が来ても仕事は続けられます。ただし<b>勇者と同じ部屋にいると見つかります</b>。点線の隠し戸から職員通路を通って先回りしましょう</li>
+            <li>勇者は戦うと<b>体力</b>が減り、敵や宝で<b>ワクワク</b>が上がり、何もないと退屈します。倒れても、退屈して帰ってもだめ。ギリギリで階段にたどり着くのが最高の仕事です</li>
           </ul>
-          <button id="btn-start" type="button" class="primary big">出勤する</button>
+          <button id="btn-start" type="button" class="primary big">引き継ぎを読む</button>
+        </div>
+      </section>
+
+      <section id="book" class="overlay" hidden>
+        <div class="card">
+          <h2>冒険の書（前の勇者）</h2>
+          <p class="hint">部屋の順は、勇者が通る順。どこで何をしたかは書いていない</p>
+          <div id="book-pages"></div>
+          <button id="btn-book-close" type="button" class="primary big">仕事にかかる</button>
         </div>
       </section>
 
       <section id="storage" class="overlay" hidden>
         <div class="card">
-          <h2>倉庫</h2>
+          <h2>職員通路の棚</h2>
           <p class="hint">持てるのは 3 つまで。タップで取る・戻す</p>
           <div id="shelf" class="grid"></div>
           <h3>持ち物</h3>
           <div id="carry" class="grid"></div>
-          <button id="btn-storage-close" type="button" class="primary">閉じる</button>
+          <button id="btn-storage-close" type="button" class="primary big">閉じる</button>
         </div>
       </section>
 
       <section id="result" class="overlay" hidden>
         <div class="card">
-          <h2>勤務評価</h2>
+          <h2 id="result-title">勤務評価</h2>
           <div id="stars" class="stars"></div>
           <p id="summary" class="lead"></p>
           <ul id="judgements" class="judgements"></ul>

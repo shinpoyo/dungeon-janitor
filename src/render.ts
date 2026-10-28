@@ -1,5 +1,5 @@
-import { type Game, type Thing, needsWork } from "./game";
-import { type TreasureKind, samePos } from "./map";
+import type { Game, Thing } from "./game";
+import type { TreasureKind } from "./map";
 
 const FONT = `"Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif`;
 
@@ -11,6 +11,7 @@ const C = {
   door: "#7a5232",
   doorDark: "#4f3420",
   shelf: "#6b4a2d",
+  staff: "#2e3a3a",
   blueprint: "#14467a",
   blueLine: "rgba(220,235,255,0.9)",
   blueFaint: "rgba(220,235,255,0.18)",
@@ -44,7 +45,17 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, T: number, showBl
         }
         continue;
       }
-      ctx.fillStyle = (x + y) % 2 ? C.floorA : C.floorB;
+      if (t === "hidden") {
+        // 職員用の隠し戸：勇者には壁に見えるが、清掃員には分かるよう印を付ける
+        ctx.fillStyle = C.wallTop;
+        ctx.fillRect(px, py, T, T);
+        ctx.strokeStyle = "rgba(255,211,77,0.55)";
+        ctx.setLineDash([3, 3]);
+        ctx.strokeRect(px + T * 0.2, py + T * 0.12, T * 0.6, T * 0.76);
+        ctx.setLineDash([]);
+        continue;
+      }
+      ctx.fillStyle = bp.roomAt[y][x] >= 0 && bp.rooms[bp.roomAt[y][x]].staff ? C.staff : (x + y) % 2 ? C.floorA : C.floorB;
       ctx.fillRect(px, py, T, T);
       if (t === "shelf") drawShelf(ctx, px, py, T, x);
     }
@@ -64,6 +75,8 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, T: number, showBl
       ctx.translate(-shake, 0);
     }
   }
+
+  drawDarkness(ctx, g, T);
 
   // 予約したマスの番号
   g.janitor.queue.forEach((task, i) => {
@@ -87,6 +100,19 @@ export function render(ctx: CanvasRenderingContext2D, g: Game, T: number, showBl
   if (g.hero) drawHero(ctx, g.hero.px * T, g.hero.py * T, T, time);
 
   for (const b of g.bubbles) drawBubble(ctx, b.text, (b.x + 0.5) * T, (b.y - 0.1) * T - (1.6 - b.life) * T * 0.4, T, b.tone, Math.min(1, b.life * 2));
+}
+
+// まだ見ていない所は真っ暗、見たことはあるが今は照らされていない所は薄暗く
+function drawDarkness(ctx: CanvasRenderingContext2D, g: Game, T: number) {
+  const { bp } = g;
+  for (let y = 0; y < bp.height; y++) {
+    for (let x = 0; x < bp.width; x++) {
+      const i = y * bp.width + x;
+      if (g.visible[i]) continue;
+      ctx.fillStyle = g.seen[i] ? "rgba(6,4,10,0.6)" : "#07050a";
+      ctx.fillRect(x * T, y * T, T + 0.5, T + 0.5);
+    }
+  }
 }
 
 function drawShelf(ctx: CanvasRenderingContext2D, px: number, py: number, T: number, x: number) {
@@ -247,6 +273,7 @@ function drawMonster(ctx: CanvasRenderingContext2D, th: Extract<Thing, { kind: "
   const px = th.pos.x * T;
   const py = th.pos.y * T;
   const cx = px + T / 2;
+  if (th.state === "gone") return;
   const down = th.state === "down";
   const reviving = th.state === "reviving";
   ctx.globalAlpha = reviving ? 0.55 + Math.sin(time * 8) * 0.2 : 1;
@@ -465,6 +492,11 @@ function drawBlueprint(ctx: CanvasRenderingContext2D, g: Game, T: number) {
         // 今壊れている扉は、設計図では普通に描くだけ（見比べて探す）
       }
       if (t === "shelf") label(x, y, "棚", 0.3);
+      if (t === "hidden") {
+        ctx.setLineDash([3, 3]);
+        ctx.strokeRect(x * T + T * 0.2, y * T + T * 0.15, T * 0.6, T * 0.7);
+        ctx.setLineDash([]);
+      }
     }),
   );
   for (const o of bp.objects) {
@@ -486,6 +518,20 @@ function drawBlueprint(ctx: CanvasRenderingContext2D, g: Game, T: number) {
       label(x, y, "灯", 0.32);
     }
   }
+  // 部屋の名前と、勇者が通る順
+  ctx.fillStyle = "rgba(255,211,77,0.95)";
+  for (const r of bp.rooms) {
+    const tiles = r.tiles.filter((p) => p.x !== bp.stairs.x || p.y !== bp.stairs.y);
+    const top = tiles.reduce((a, p) => (p.y < a.y || (p.y === a.y && p.x < a.x) ? p : a));
+    ctx.font = `bold ${Math.round(T * 0.26)}px ${FONT}`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    const name = r.staff ? "職員通路" : `${r.order + 1}. ${r.name}`;
+    if (!r.staff) ctx.fillText(name, top.x * T + 3, top.y * T + 2);
+  }
+  ctx.fillStyle = C.blueLine;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
   label(bp.entrance.x, bp.entrance.y, "入口", 0.26);
   label(bp.stairs.x, bp.stairs.y, "階段", 0.26);
 
@@ -504,10 +550,3 @@ function line(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number,
   ctx.stroke();
 }
 
-export function workCount(g: Game) {
-  return g.things.filter(needsWork).length;
-}
-
-export function janitorOn(g: Game, x: number, y: number) {
-  return samePos(g.janitor.pos, { x, y });
-}
